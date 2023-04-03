@@ -1,4 +1,5 @@
 import scrapy
+import logging
 
 class CountriesSpider(scrapy.Spider):
     name = "countries"
@@ -13,7 +14,7 @@ class CountriesSpider(scrapy.Spider):
         for country in countries:
             # the response object in countries will be stored all the selected path now individual selected path also have the xpath method where we select the elements by starting like this .// 
             # so to select the name
-            name = country.xpath('.//text').get()
+            name = country.xpath('.//text()').get()
             link = country.xpath('.//@href').get()
     
             # yield {
@@ -32,10 +33,33 @@ class CountriesSpider(scrapy.Spider):
             # yield scrapy.Request(absolute_url)
 
             # Also I can do like this at the same time in one command to successfully request each link
-            yield response.follow(url=link)
+            # yield response.follow(url=link)
 
             # but only sending the request and getting the response is not enough. we have to capture the request so we can scrape -- where we gonna catch the response? 
 
             # For that we need to create a method which can catch response
+            # as names parsed here we have to send that as meta data
+            yield response.follow(url=link, callback=self.parse_country, meta={'country_name':name})
+            
+    # as scrapy sends the responses to each contry link the responses will be sent to the parse_country() method
+    def parse_country(self, response):
+        # look for response url
+        # logging.info(response.url)
+        name = response.request.meta['country_name']
+        rows = response.xpath("(//table[@class='table table-striped table-bordered table-hover table-condensed table-list'])[1]/tbody/tr")
+        for row in rows:
+            year = row.xpath(".//td[1]/text()").get()
+            population = row.xpath(".//td[2]/strong/text()").get()
+            yearly_changes = row.xpath(".//td[3]/text()").get()
+            fertility_rate = row.xpath(".//td[7]/text()").get()
+
+            yield {
+                "country_name": name,
+                "year": year,
+                "population": population,
+                "yearly_changes": yearly_changes,
+                "fertility_rate": fertility_rate
+            }
+        
 
             
